@@ -1,29 +1,13 @@
-import React, { useState } from 'react';
-import { Store, Plus, MapPin, Phone, Mail, Users, CheckCircle2 } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { Store, Plus, MapPin, Phone, Mail, Users, CheckCircle2, Trash2, AlertCircle } from 'lucide-react';
 import { Header } from '../components/Header';
+import { apiClient } from '../api/client';
 import { Branch } from '../types';
 
 export const Branches: React.FC = () => {
-  const [branches, setBranches] = useState<Branch[]>([
-    {
-      id: '1',
-      name: 'Main Care Center — Dhanmondi',
-      address: 'House 42, Road 11, Dhanmondi, Dhaka-1209',
-      phone: '+880 1711 000000',
-      email: 'dhanmondi@fixora.com',
-      isMainBranch: true,
-      activeStaffCount: 8,
-    },
-    {
-      id: '2',
-      name: 'Uttara Repair Express',
-      address: 'Sector 3, Uttara Model Town, Dhaka-1230',
-      phone: '+880 1811 000000',
-      email: 'uttara@fixora.com',
-      isMainBranch: false,
-      activeStaffCount: 4,
-    },
-  ]);
+  const [branches, setBranches] = useState<Branch[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const [showAddModal, setShowAddModal] = useState(false);
   const [newBranch, setNewBranch] = useState({
@@ -31,25 +15,48 @@ export const Branches: React.FC = () => {
     address: '',
     phone: '',
     email: '',
+    isMainBranch: false,
   });
 
-  const handleCreateBranch = (e: React.FormEvent) => {
+  const fetchBranches = async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const response = await apiClient.get('/api/v1/staff/branches');
+      setBranches(response.data);
+    } catch (err: any) {
+      console.warn('Failed to fetch branches from backend API');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchBranches();
+  }, []);
+
+  const handleCreateBranch = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newBranch.name) return;
 
-    const created: Branch = {
-      id: Date.now().toString(),
-      name: newBranch.name,
-      address: newBranch.address,
-      phone: newBranch.phone,
-      email: newBranch.email,
-      isMainBranch: branches.length === 0,
-      activeStaffCount: 1,
-    };
+    try {
+      const response = await apiClient.post('/api/v1/staff/branches', newBranch);
+      setBranches([...branches, response.data]);
+      setNewBranch({ name: '', address: '', phone: '', email: '', isMainBranch: false });
+      setShowAddModal(false);
+    } catch (err: any) {
+      setError('Failed to create branch on backend server.');
+    }
+  };
 
-    setBranches([...branches, created]);
-    setNewBranch({ name: '', address: '', phone: '', email: '' });
-    setShowAddModal(false);
+  const handleDeleteBranch = async (id: string) => {
+    if (!window.confirm('Are you sure you want to remove this branch?')) return;
+    try {
+      await apiClient.delete(`/api/v1/staff/branches/${id}`);
+      setBranches(branches.filter((b) => b.id !== id));
+    } catch (err: any) {
+      setError('Failed to delete branch.');
+    }
   };
 
   return (
@@ -72,6 +79,32 @@ export const Branches: React.FC = () => {
           </button>
         </div>
 
+        {error && (
+          <div className="p-4 rounded-2xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm flex items-center gap-2">
+            <AlertCircle className="w-5 h-5 shrink-0" />
+            <span>{error}</span>
+          </div>
+        )}
+
+        {/* Empty State when no branches created yet */}
+        {!isLoading && branches.length === 0 && (
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-12 text-center max-w-md mx-auto space-y-4">
+            <div className="w-16 h-16 rounded-2xl bg-slate-800 border border-slate-700 flex items-center justify-center mx-auto text-cyan-400">
+              <Store className="w-8 h-8" />
+            </div>
+            <h3 className="text-lg font-bold text-white">No Branches Configured Yet</h3>
+            <p className="text-sm text-slate-400">
+              Click the button below to add your primary shop outlet location.
+            </p>
+            <button
+              onClick={() => setShowAddModal(true)}
+              className="bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-sm px-6 py-3 rounded-xl transition-colors shadow-lg shadow-cyan-500/20"
+            >
+              Add First Branch
+            </button>
+          </div>
+        )}
+
         {/* Branch Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {branches.map((branch) => (
@@ -89,12 +122,20 @@ export const Branches: React.FC = () => {
                       {branch.name}
                       {branch.isMainBranch && (
                         <span className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-xs px-2.5 py-0.5 rounded-full font-medium flex items-center gap-1">
-                          <CheckCircle2 className="w-3 h-3" /> HQ Main
+                          <CheckCircle2 className="w-3 h-3" /> Main HQ
                         </span>
                       )}
                     </h3>
                   </div>
                 </div>
+
+                <button
+                  onClick={() => handleDeleteBranch(branch.id)}
+                  title="Delete Branch"
+                  className="p-2 text-slate-500 hover:text-red-400 hover:bg-red-500/10 rounded-xl transition-colors"
+                >
+                  <Trash2 className="w-5 h-5" />
+                </button>
               </div>
 
               <div className="space-y-2.5 text-sm text-slate-300 mb-6">
@@ -111,14 +152,6 @@ export const Branches: React.FC = () => {
                   <span>{branch.email}</span>
                 </p>
               </div>
-
-              <div className="pt-4 border-t border-slate-800/80 flex items-center justify-between text-xs text-slate-400">
-                <span className="flex items-center gap-1.5 font-medium text-slate-300">
-                  <Users className="w-4 h-4 text-cyan-400" />
-                  {branch.activeStaffCount} Active Staff Members
-                </span>
-                <button className="text-cyan-400 hover:underline font-semibold">Configure Settings</button>
-              </div>
             </div>
           ))}
         </div>
@@ -127,7 +160,7 @@ export const Branches: React.FC = () => {
         {showAddModal && (
           <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
             <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 w-full max-w-lg shadow-2xl space-y-5">
-              <h3 className="text-xl font-bold text-white">Create New Branch Outlet</h3>
+              <h3 className="text-xl font-bold text-white">Setup New Shop Branch</h3>
               <form onSubmit={handleCreateBranch} className="space-y-4">
                 <div>
                   <label className="block text-xs font-semibold text-slate-300 uppercase mb-1">Branch Name</label>
@@ -137,7 +170,7 @@ export const Branches: React.FC = () => {
                     value={newBranch.name}
                     onChange={(e) => setNewBranch({ ...newBranch, name: e.target.value })}
                     className="w-full bg-slate-950 border border-slate-800 focus:border-cyan-500 rounded-2xl p-3 text-sm text-white outline-none"
-                    placeholder="e.g. Gulshan Care Center"
+                    placeholder="e.g. Main Outlet"
                   />
                 </div>
                 <div>
@@ -148,7 +181,7 @@ export const Branches: React.FC = () => {
                     value={newBranch.address}
                     onChange={(e) => setNewBranch({ ...newBranch, address: e.target.value })}
                     className="w-full bg-slate-950 border border-slate-800 focus:border-cyan-500 rounded-2xl p-3 text-sm text-white outline-none"
-                    placeholder="e.g. Plot 12, Avenue 2, Gulshan-2, Dhaka"
+                    placeholder="e.g. 123 Commercial Street"
                   />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
@@ -160,7 +193,7 @@ export const Branches: React.FC = () => {
                       value={newBranch.phone}
                       onChange={(e) => setNewBranch({ ...newBranch, phone: e.target.value })}
                       className="w-full bg-slate-950 border border-slate-800 focus:border-cyan-500 rounded-2xl p-3 text-sm text-white outline-none"
-                      placeholder="+880 1911 000000"
+                      placeholder="+1 555-0199"
                     />
                   </div>
                   <div>
@@ -171,10 +204,24 @@ export const Branches: React.FC = () => {
                       value={newBranch.email}
                       onChange={(e) => setNewBranch({ ...newBranch, email: e.target.value })}
                       className="w-full bg-slate-950 border border-slate-800 focus:border-cyan-500 rounded-2xl p-3 text-sm text-white outline-none"
-                      placeholder="gulshan@fixora.com"
+                      placeholder="branch@fixora.com"
                     />
                   </div>
                 </div>
+
+                <div className="flex items-center gap-2 pt-2">
+                  <input
+                    type="checkbox"
+                    id="isMainBranch"
+                    checked={newBranch.isMainBranch}
+                    onChange={(e) => setNewBranch({ ...newBranch, isMainBranch: e.target.checked })}
+                    className="w-4 h-4 rounded bg-slate-950 border-slate-800 text-cyan-500 focus:ring-cyan-500"
+                  />
+                  <label htmlFor="isMainBranch" className="text-sm text-slate-300 font-medium">
+                    Set as Primary / Main HQ Branch
+                  </label>
+                </div>
+
                 <div className="flex items-center justify-end gap-3 pt-4">
                   <button
                     type="button"

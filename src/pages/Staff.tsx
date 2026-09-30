@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Users, UserPlus, Shield, CheckCircle, XCircle } from 'lucide-react';
+import { Users, UserPlus, CheckCircle, XCircle } from 'lucide-react';
 import { Header } from '../components/Header';
 import { StaffUser, StaffRole } from '../types';
 
@@ -7,27 +7,11 @@ export const Staff: React.FC = () => {
   const [staffList, setStaffList] = useState<StaffUser[]>([
     {
       id: '1',
-      fullName: 'Karim Ahmed',
+      fullName: 'Admin Owner',
       email: 'karim@techcare.com',
       role: 'ROLE_OWNER',
       active: true,
-      branchName: 'Main Care Center — Dhanmondi',
-    },
-    {
-      id: '2',
-      fullName: 'Sumon Hasan',
-      email: 'sumon@techcare.com',
-      role: 'ROLE_TECHNICIAN',
-      active: true,
-      branchName: 'Main Care Center — Dhanmondi',
-    },
-    {
-      id: '3',
-      fullName: 'Tania Akter',
-      email: 'tania@techcare.com',
-      role: 'ROLE_RECEPTIONIST',
-      active: true,
-      branchName: 'Uttara Repair Express',
+      branchName: 'Main Branch',
     },
   ]);
 
@@ -48,7 +32,7 @@ export const Staff: React.FC = () => {
       email: newStaff.email,
       role: newStaff.role,
       active: true,
-      branchName: 'Main Care Center — Dhanmondi',
+      branchName: 'Main Branch',
     };
 
     setStaffList([...staffList, created]);
@@ -156,7 +140,7 @@ export const Staff: React.FC = () => {
                     value={newStaff.fullName}
                     onChange={(e) => setNewStaff({ ...newStaff, fullName: e.target.value })}
                     className="w-full bg-slate-950 border border-slate-800 focus:border-cyan-500 rounded-2xl p-3 text-sm text-white outline-none"
-                    placeholder="e.g. Sumon Ahmed"
+                    placeholder="e.g. Technician User"
                   />
                 </div>
                 <div>
@@ -167,7 +151,7 @@ export const Staff: React.FC = () => {
                     value={newStaff.email}
                     onChange={(e) => setNewStaff({ ...newStaff, email: e.target.value })}
                     className="w-full bg-slate-950 border border-slate-800 focus:border-cyan-500 rounded-2xl p-3 text-sm text-white outline-none"
-                    placeholder="sumon@fixora.com"
+                    placeholder="staff@fixora.com"
                   />
                 </div>
                 <div>
