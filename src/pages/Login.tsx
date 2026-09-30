@@ -20,8 +20,9 @@ export const Login: React.FC = () => {
 
     try {
       const response = await apiClient.post('/api/v1/staff/auth/login', {
-        email,
-        password,
+        username: email,
+        email: email,
+        password: password,
       });
 
       const { token, ...userData } = response.data;
@@ -57,7 +58,7 @@ export const Login: React.FC = () => {
         {/* Error Alert */}
         {error && (
           <div className="mb-6 p-4 rounded-2xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm flex items-start gap-3">
-            <AlertCircle className="w-5 h-5 text-red-400 shrink-0 mt-0.5" />
+            <AlertCircle className="w-5 h-5 text-red-400 shrink-0 mt-0.5 font-bold" />
             <span>{error}</span>
           </div>
         )}
