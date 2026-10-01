@@ -1,14 +1,16 @@
 import React, { useEffect, useState } from 'react';
-import { Package, Plus, AlertCircle, RefreshCw, Edit3, Trash2 } from 'lucide-react';
+import { Package, Plus, AlertCircle, RefreshCw, Edit3, Trash2, ArrowRightLeft } from 'lucide-react';
 import { Header } from '../components/Header';
 import { apiClient } from '../api/client';
 
 export const Inventory: React.FC = () => {
   const [items, setItems] = useState<any[]>([]);
+  const [branches, setBranches] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showTransferModal, setShowTransferModal] = useState(false);
   const [editingItem, setEditingItem] = useState<any | null>(null);
 
   const [newItem, setNewItem] = useState({
@@ -23,6 +25,13 @@ export const Inventory: React.FC = () => {
     supplierName: '',
   });
 
+  const [transferForm, setTransferForm] = useState({
+    partSku: '',
+    sourceBranchName: 'Main Branch',
+    targetBranchName: 'Gulshan Branch',
+    quantity: 1,
+  });
+
   const [editFormData, setEditFormData] = useState({
     name: '',
     sku: '',
@@ -35,21 +44,33 @@ export const Inventory: React.FC = () => {
     supplierName: '',
   });
 
-  const fetchInventory = async () => {
+  const fetchInventoryAndBranches = async () => {
     setIsLoading(true);
     setError(null);
     try {
-      const response = await apiClient.get('/api/v1/staff/inventory');
-      setItems(response.data);
+      const [invRes, branchRes] = await Promise.all([
+        apiClient.get('/api/v1/staff/inventory'),
+        apiClient.get('/api/v1/staff/branches').catch(() => ({ data: [] }))
+      ]);
+
+      const fetchedItems = invRes.data || [];
+      const fetchedBranches = branchRes.data || [];
+
+      setItems(fetchedItems);
+      setBranches(fetchedBranches);
+
+      if (fetchedItems.length > 0) {
+        setTransferForm((prev) => ({ ...prev, partSku: fetchedItems[0].sku }));
+      }
     } catch (err: any) {
-      console.warn('Failed to fetch inventory from database');
+      console.warn('Failed to fetch inventory or branches from database');
     } finally {
       setIsLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchInventory();
+    fetchInventoryAndBranches();
   }, []);
 
   const handleAddStockItem = async (e: React.FormEvent) => {
@@ -87,6 +108,19 @@ export const Inventory: React.FC = () => {
       setShowAddModal(false);
     } catch (err: any) {
       setError('Failed to save stock item to PostgreSQL database.');
+    }
+  };
+
+  const handleTransferStock = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!transferForm.partSku) return;
+
+    try {
+      await apiClient.post('/api/v1/staff/inventory/transfer', transferForm);
+      setShowTransferModal(false);
+      fetchInventoryAndBranches();
+    } catch (err: any) {
+      setError('Failed to transfer stock between branches.');
     }
   };
 
@@ -145,7 +179,7 @@ export const Inventory: React.FC = () => {
 
   return (
     <div className="flex-1 min-h-screen bg-slate-950 pb-12">
-      <Header title="Spare Parts Inventory" subtitle="Stock management and automatic reorder thresholds" />
+      <Header title="Spare Parts Inventory & Stock Transfers" subtitle="Stock management, reorder alerts, and multi-branch inventory transfers" />
 
       <main className="p-8 max-w-7xl mx-auto space-y-6">
         <div className="flex items-center justify-between">
@@ -155,12 +189,21 @@ export const Inventory: React.FC = () => {
           </div>
           <div className="flex items-center gap-3">
             <button
-              onClick={fetchInventory}
+              onClick={fetchInventoryAndBranches}
               className="p-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl transition-colors flex items-center gap-2 text-xs font-semibold"
             >
               <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
               <span>Refresh</span>
             </button>
+
+            <button
+              onClick={() => setShowTransferModal(true)}
+              className="bg-slate-800 hover:bg-slate-700 text-white font-semibold text-sm px-4 py-2.5 rounded-xl border border-slate-700 flex items-center gap-2"
+            >
+              <ArrowRightLeft className="w-4 h-4 text-cyan-400" />
+              <span>Transfer Stock</span>
+            </button>
+
             <button
               onClick={() => setShowAddModal(true)}
               className="bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 text-white font-semibold text-sm px-5 py-2.5 rounded-xl shadow-lg shadow-cyan-500/20 flex items-center gap-2"
@@ -369,6 +412,77 @@ export const Inventory: React.FC = () => {
                     className="px-5 py-2.5 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 text-sm font-bold shadow-lg shadow-cyan-500/20"
                   >
                     Save Stock Item
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* Transfer Stock Modal */}
+        {showTransferModal && (
+          <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+            <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 w-full max-w-md shadow-2xl space-y-5">
+              <h3 className="text-xl font-bold text-white flex items-center gap-2">
+                <ArrowRightLeft className="w-5 h-5 text-cyan-400" />
+                Inter-Branch Stock Transfer
+              </h3>
+              <form onSubmit={handleTransferStock} className="space-y-4">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 uppercase mb-1">Select Spare Part</label>
+                  <select
+                    value={transferForm.partSku}
+                    onChange={(e) => setTransferForm({ ...transferForm, partSku: e.target.value })}
+                    className="w-full bg-slate-950 border border-slate-800 focus:border-cyan-500 rounded-2xl p-3 text-sm text-white outline-none font-mono"
+                  >
+                    {items.map((i) => (
+                      <option key={i.id} value={i.sku}>
+                        {i.name} ({i.sku})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 uppercase mb-1">Target Branch Outlet</label>
+                  <select
+                    value={transferForm.targetBranchName}
+                    onChange={(e) => setTransferForm({ ...transferForm, targetBranchName: e.target.value })}
+                    className="w-full bg-slate-950 border border-slate-800 focus:border-cyan-500 rounded-2xl p-3 text-sm text-white outline-none"
+                  >
+                    {branches.map((b) => (
+                      <option key={b.id} value={b.name}>
+                        {b.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 uppercase mb-1">Transfer Quantity (pcs)</label>
+                  <input
+                    type="number"
+                    min="1"
+                    required
+                    value={transferForm.quantity}
+                    onChange={(e) => setTransferForm({ ...transferForm, quantity: parseInt(e.target.value) || 1 })}
+                    className="w-full bg-slate-950 border border-slate-800 focus:border-cyan-500 rounded-2xl p-3 text-sm text-white outline-none font-bold text-cyan-400"
+                  />
+                </div>
+
+                <div className="flex items-center justify-end gap-3 pt-4">
+                  <button
+                    type="button"
+                    onClick={() => setShowTransferModal(false)}
+                    className="px-5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-sm font-semibold"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-5 py-2.5 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 text-sm font-bold shadow-lg shadow-cyan-500/20"
+                  >
+                    Confirm Transfer
                   </button>
                 </div>
               </form>

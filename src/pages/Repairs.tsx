@@ -1,14 +1,18 @@
 import React, { useEffect, useState } from 'react';
-import { Wrench, ShieldCheck, Plus, AlertCircle, RefreshCw, Smartphone, DollarSign, User, FileText } from 'lucide-react';
+import { Wrench, ShieldCheck, Plus, AlertCircle, RefreshCw, Smartphone, User, FileText, UserCheck } from 'lucide-react';
 import { Header } from '../components/Header';
 import { apiClient } from '../api/client';
 
 export const Repairs: React.FC = () => {
   const [repairs, setRepairs] = useState<any[]>([]);
+  const [staffUsers, setStaffUsers] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const [showAddModal, setShowAddModal] = useState(false);
+  const [assigningJob, setAssigningJob] = useState<any | null>(null);
+  const [selectedTechId, setSelectedTechId] = useState<string>('');
+
   const [intakeForm, setIntakeForm] = useState({
     customerName: '',
     customerPhone: '',
@@ -23,21 +27,31 @@ export const Repairs: React.FC = () => {
     estimatedCostDollars: '120.00',
   });
 
-  const fetchRepairs = async () => {
+  const fetchData = async () => {
     setIsLoading(true);
     setError(null);
     try {
-      const response = await apiClient.get('/api/v1/staff/repairs');
-      setRepairs(response.data);
+      const [repairRes, staffRes] = await Promise.all([
+        apiClient.get('/api/v1/staff/repairs'),
+        apiClient.get('/api/v1/staff/users').catch(() => ({ data: [] }))
+      ]);
+
+      setRepairs(repairRes.data || []);
+      const fetchedStaff = staffRes.data || [];
+      setStaffUsers(fetchedStaff);
+
+      if (fetchedStaff.length > 0) {
+        setSelectedTechId(fetchedStaff[0].id);
+      }
     } catch (err: any) {
-      console.warn('Failed to fetch repair jobs from database');
+      console.warn('Failed to fetch repair jobs or staff from database');
     } finally {
       setIsLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchRepairs();
+    fetchData();
   }, []);
 
   const handleCreateIntakeTicket = async (e: React.FormEvent) => {
@@ -81,6 +95,22 @@ export const Repairs: React.FC = () => {
     }
   };
 
+  const handleAssignTechnician = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!assigningJob || !selectedTechId) return;
+
+    try {
+      const response = await apiClient.patch(`/api/v1/staff/repairs/${assigningJob.id}/assign`, {
+        technicianId: selectedTechId,
+      });
+
+      setRepairs(repairs.map((r) => (r.id === assigningJob.id ? response.data : r)));
+      setAssigningJob(null);
+    } catch (err: any) {
+      setError('Failed to assign technician on database.');
+    }
+  };
+
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'IN_REPAIR':
@@ -99,7 +129,7 @@ export const Repairs: React.FC = () => {
 
   return (
     <div className="flex-1 min-h-screen bg-slate-950 pb-12">
-      <Header title="Repair Jobs & Workflow" subtitle="Live state machine tracking and cryptographic SHA-256 verification" />
+      <Header title="Repair Jobs & Workflow" subtitle="Live state machine tracking, technician assignments, and cryptographic SHA-256 verification" />
 
       <main className="p-8 max-w-7xl mx-auto space-y-6">
         <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl space-y-6">
@@ -110,7 +140,7 @@ export const Repairs: React.FC = () => {
             </div>
             <div className="flex items-center gap-3">
               <button
-                onClick={fetchRepairs}
+                onClick={fetchData}
                 className="p-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl transition-colors flex items-center gap-2 text-xs font-semibold"
               >
                 <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
@@ -161,7 +191,7 @@ export const Repairs: React.FC = () => {
                     <th className="px-4 py-3.5">Customer</th>
                     <th className="px-4 py-3.5">Device</th>
                     <th className="px-4 py-3.5">Status</th>
-                    <th className="px-4 py-3.5">Technician</th>
+                    <th className="px-4 py-3.5">Assigned Technician</th>
                     <th className="px-4 py-3.5">Estimated Cost</th>
                     <th className="px-4 py-3.5 rounded-r-xl">Cryptographic SHA-256 Hash</th>
                   </tr>
@@ -180,7 +210,18 @@ export const Repairs: React.FC = () => {
                         </span>
                       </td>
                       <td className="px-4 py-4 text-xs text-slate-300">
-                        {job.assignedTechnician?.name || 'Unassigned'}
+                        <button
+                          onClick={() => {
+                            setAssigningJob(job);
+                            if (job.assignedTechnician?.id) {
+                              setSelectedTechId(job.assignedTechnician.id);
+                            }
+                          }}
+                          className="hover:underline text-cyan-400 font-semibold flex items-center gap-1"
+                        >
+                          <UserCheck className="w-3.5 h-3.5" />
+                          {job.assignedTechnician?.name || 'Assign Technician'}
+                        </button>
                       </td>
                       <td className="px-4 py-4 font-bold text-white">
                         ${((job.estimatedCostCents || 0) / 100).toFixed(2)}
@@ -355,6 +396,57 @@ export const Repairs: React.FC = () => {
                     className="px-5 py-2.5 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 text-sm font-bold shadow-lg shadow-cyan-500/20"
                   >
                     Create Intake Ticket
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* Assign Technician Modal */}
+        {assigningJob && (
+          <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+            <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 w-full max-w-md shadow-2xl space-y-5">
+              <div>
+                <h3 className="text-xl font-bold text-white">Assign Bench Technician</h3>
+                <p className="text-xs text-slate-400 mt-1">
+                  Assigning technician to repair ticket <span className="text-cyan-400 font-mono font-bold">{assigningJob.jobNumber}</span>
+                </p>
+              </div>
+
+              <form onSubmit={handleAssignTechnician} className="space-y-4">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 uppercase mb-1">Select Technician</label>
+                  <select
+                    value={selectedTechId}
+                    onChange={(e) => setSelectedTechId(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 focus:border-cyan-500 rounded-2xl p-3.5 text-sm text-white outline-none"
+                  >
+                    {staffUsers.length === 0 ? (
+                      <option value="">No staff members found</option>
+                    ) : (
+                      staffUsers.map((s) => (
+                        <option key={s.id} value={s.id}>
+                          {s.name} ({s.role.replace('ROLE_', '')}) — {s.branchName}
+                        </option>
+                      ))
+                    )}
+                  </select>
+                </div>
+
+                <div className="flex items-center justify-end gap-3 pt-4">
+                  <button
+                    type="button"
+                    onClick={() => setAssigningJob(null)}
+                    className="px-5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-sm font-semibold"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-5 py-2.5 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 text-sm font-bold shadow-lg shadow-cyan-500/20"
+                  >
+                    Confirm Assignment
                   </button>
                 </div>
               </form>
