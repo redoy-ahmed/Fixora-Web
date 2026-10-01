@@ -23,6 +23,7 @@ export const Sidebar: React.FC = () => {
     { to: '/reports', label: 'Reports & Analytics', icon: BarChart3 },
     { to: '/invoices', label: 'Invoices & POS', icon: Receipt },
     { to: '/passport', label: 'Device Passport', icon: QrCode },
+    { to: '/customers', label: 'Customers CRM', icon: Users },
     { to: '/warranties', label: 'Warranties & Claims', icon: ShieldCheck },
     { to: '/branches', label: 'Branch Setup', icon: Store },
     { to: '/staff', label: 'Staff & Roles', icon: Users },
