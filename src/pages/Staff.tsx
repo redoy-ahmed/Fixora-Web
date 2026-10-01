@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Users, UserPlus, CheckCircle, XCircle, RefreshCw, AlertCircle, Trash2, Edit3 } from 'lucide-react';
+import { Users, UserPlus, CheckCircle, RefreshCw, AlertCircle, Trash2, Edit3, Shield } from 'lucide-react';
 import { Header } from '../components/Header';
 import { apiClient } from '../api/client';
 import { StaffRole } from '../types';
@@ -16,9 +16,15 @@ export const Staff: React.FC = () => {
     fullName: '',
     email: '',
     role: 'ROLE_TECHNICIAN' as StaffRole,
+    branchName: 'Main Branch',
   });
 
-  const [selectedRole, setSelectedRole] = useState<StaffRole>('ROLE_TECHNICIAN');
+  const [editFormData, setEditFormData] = useState({
+    name: '',
+    email: '',
+    role: 'ROLE_TECHNICIAN' as StaffRole,
+    branchName: 'Main Branch',
+  });
 
   const fetchStaffUsers = async () => {
     setIsLoading(true);
@@ -47,23 +53,36 @@ export const Staff: React.FC = () => {
         email: newStaff.email,
         role: newStaff.role,
         password: 'password123',
-        branchName: 'Main Branch'
+        branchName: newStaff.branchName || 'Main Branch'
       });
       setStaffList([...staffList, response.data]);
-      setNewStaff({ fullName: '', email: '', role: 'ROLE_TECHNICIAN' });
+      setNewStaff({ fullName: '', email: '', role: 'ROLE_TECHNICIAN', branchName: 'Main Branch' });
       setShowAddModal(false);
     } catch (err: any) {
       setError('Failed to create staff account on database.');
     }
   };
 
-  const handleUpdateRole = async (e: React.FormEvent) => {
+  const handleOpenEditModal = (staff: any) => {
+    setEditingStaff(staff);
+    setEditFormData({
+      name: staff.name || '',
+      email: staff.email || '',
+      role: staff.role || 'ROLE_TECHNICIAN',
+      branchName: staff.branchName || 'Main Branch',
+    });
+  };
+
+  const handleUpdateStaffUser = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingStaff) return;
 
     try {
-      const response = await apiClient.patch(`/api/v1/staff/users/${editingStaff.id}/role`, {
-        role: selectedRole,
+      const response = await apiClient.put(`/api/v1/staff/users/${editingStaff.id}`, {
+        name: editFormData.name,
+        email: editFormData.email,
+        role: editFormData.role,
+        branchName: editFormData.branchName,
       });
 
       setStaffList(
@@ -71,7 +90,7 @@ export const Staff: React.FC = () => {
       );
       setEditingStaff(null);
     } catch (err: any) {
-      setError('Failed to update staff role on database.');
+      setError('Failed to update staff account on database.');
     }
   };
 
@@ -141,8 +160,8 @@ export const Staff: React.FC = () => {
           <table className="w-full text-left text-sm text-slate-300">
             <thead className="bg-slate-950 text-xs text-slate-400 uppercase tracking-wider">
               <tr>
-                <th className="px-4 py-3.5 rounded-l-xl">Employee</th>
-                <th className="px-4 py-3.5">Role</th>
+                <th className="px-4 py-3.5 rounded-l-xl">Employee Name & Email</th>
+                <th className="px-4 py-3.5">Security Role</th>
                 <th className="px-4 py-3.5">Assigned Branch</th>
                 <th className="px-4 py-3.5">Status</th>
                 <th className="px-4 py-3.5 rounded-r-xl text-right">Actions</th>
@@ -175,13 +194,10 @@ export const Staff: React.FC = () => {
                   </td>
                   <td className="px-4 py-4 text-right flex items-center justify-end gap-3">
                     <button
-                      onClick={() => {
-                        setEditingStaff(staff);
-                        setSelectedRole(staff.role);
-                      }}
+                      onClick={() => handleOpenEditModal(staff)}
                       className="text-xs font-semibold text-cyan-400 hover:underline flex items-center gap-1"
                     >
-                      <Edit3 className="w-3.5 h-3.5" /> Edit Role
+                      <Edit3 className="w-3.5 h-3.5" /> Edit User
                     </button>
 
                     <button
@@ -227,6 +243,16 @@ export const Staff: React.FC = () => {
                   />
                 </div>
                 <div>
+                  <label className="block text-xs font-semibold text-slate-300 uppercase mb-1">Assigned Branch</label>
+                  <input
+                    type="text"
+                    value={newStaff.branchName}
+                    onChange={(e) => setNewStaff({ ...newStaff, branchName: e.target.value })}
+                    className="w-full bg-slate-950 border border-slate-800 focus:border-cyan-500 rounded-2xl p-3 text-sm text-white outline-none"
+                    placeholder="Main Branch"
+                  />
+                </div>
+                <div>
                   <label className="block text-xs font-semibold text-slate-300 uppercase mb-1">Assign Security Role</label>
                   <select
                     value={newStaff.role}
@@ -260,23 +286,55 @@ export const Staff: React.FC = () => {
           </div>
         )}
 
-        {/* Edit Role Modal */}
+        {/* Full User Edit Modal */}
         {editingStaff && (
           <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
             <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 w-full max-w-md shadow-2xl space-y-5">
               <div>
-                <h3 className="text-xl font-bold text-white">Update Security Role</h3>
+                <h3 className="text-xl font-bold text-white">Edit Staff Account</h3>
                 <p className="text-xs text-slate-400 mt-1">
-                  Changing role for <span className="text-cyan-400 font-semibold">{editingStaff.name}</span>
+                  Updating details for employee <span className="text-cyan-400 font-semibold">{editingStaff.name}</span>
                 </p>
               </div>
 
-              <form onSubmit={handleUpdateRole} className="space-y-4">
+              <form onSubmit={handleUpdateStaffUser} className="space-y-4">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 uppercase mb-1">Select New Role</label>
+                  <label className="block text-xs font-semibold text-slate-300 uppercase mb-1">Full Name</label>
+                  <input
+                    type="text"
+                    required
+                    value={editFormData.name}
+                    onChange={(e) => setEditFormData({ ...editFormData, name: e.target.value })}
+                    className="w-full bg-slate-950 border border-slate-800 focus:border-cyan-500 rounded-2xl p-3 text-sm text-white outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 uppercase mb-1">Email Address</label>
+                  <input
+                    type="email"
+                    required
+                    value={editFormData.email}
+                    onChange={(e) => setEditFormData({ ...editFormData, email: e.target.value })}
+                    className="w-full bg-slate-950 border border-slate-800 focus:border-cyan-500 rounded-2xl p-3 text-sm text-white outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 uppercase mb-1">Assigned Branch Name</label>
+                  <input
+                    type="text"
+                    value={editFormData.branchName}
+                    onChange={(e) => setEditFormData({ ...editFormData, branchName: e.target.value })}
+                    className="w-full bg-slate-950 border border-slate-800 focus:border-cyan-500 rounded-2xl p-3 text-sm text-white outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 uppercase mb-1">Security Role</label>
                   <select
-                    value={selectedRole}
-                    onChange={(e) => setSelectedRole(e.target.value as StaffRole)}
+                    value={editFormData.role}
+                    onChange={(e) => setEditFormData({ ...editFormData, role: e.target.value as StaffRole })}
                     className="w-full bg-slate-950 border border-slate-800 focus:border-cyan-500 rounded-2xl p-3.5 text-sm text-white outline-none"
                   >
                     <option value="ROLE_TECHNICIAN">ROLE_TECHNICIAN (Bench Repair)</option>
@@ -299,7 +357,7 @@ export const Staff: React.FC = () => {
                     type="submit"
                     className="px-5 py-2.5 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 text-sm font-bold shadow-lg shadow-cyan-500/20"
                   >
-                    Update Role
+                    Save Changes
                   </button>
                 </div>
               </form>
