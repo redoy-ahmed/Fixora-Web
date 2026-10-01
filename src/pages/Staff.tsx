@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from 'react';
-import { Users, UserPlus, CheckCircle, RefreshCw, AlertCircle, Trash2, Edit3, Shield } from 'lucide-react';
+import { Users, UserPlus, CheckCircle, RefreshCw, AlertCircle, Trash2, Edit3, Store } from 'lucide-react';
 import { Header } from '../components/Header';
 import { apiClient } from '../api/client';
 import { StaffRole } from '../types';
 
 export const Staff: React.FC = () => {
   const [staffList, setStaffList] = useState<any[]>([]);
+  const [branches, setBranches] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -16,31 +17,43 @@ export const Staff: React.FC = () => {
     fullName: '',
     email: '',
     role: 'ROLE_TECHNICIAN' as StaffRole,
-    branchName: 'Main Branch',
+    branchName: '',
   });
 
   const [editFormData, setEditFormData] = useState({
     name: '',
     email: '',
     role: 'ROLE_TECHNICIAN' as StaffRole,
-    branchName: 'Main Branch',
+    branchName: '',
   });
 
-  const fetchStaffUsers = async () => {
+  const fetchStaffAndBranches = async () => {
     setIsLoading(true);
     setError(null);
     try {
-      const response = await apiClient.get('/api/v1/staff/users');
-      setStaffList(response.data);
+      const [staffRes, branchRes] = await Promise.all([
+        apiClient.get('/api/v1/staff/users'),
+        apiClient.get('/api/v1/staff/branches').catch(() => ({ data: [] }))
+      ]);
+
+      setStaffList(staffRes.data || []);
+      const fetchedBranches = branchRes.data || [];
+      setBranches(fetchedBranches);
+
+      if (fetchedBranches.length > 0) {
+        setNewStaff((prev) => ({ ...prev, branchName: fetchedBranches[0].name }));
+      } else {
+        setNewStaff((prev) => ({ ...prev, branchName: 'Main Branch' }));
+      }
     } catch (err: any) {
-      console.warn('Failed to fetch staff members from database');
+      console.warn('Failed to fetch staff members or branches from database');
     } finally {
       setIsLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchStaffUsers();
+    fetchStaffAndBranches();
   }, []);
 
   const handleAddStaff = async (e: React.FormEvent) => {
@@ -56,7 +69,12 @@ export const Staff: React.FC = () => {
         branchName: newStaff.branchName || 'Main Branch'
       });
       setStaffList([...staffList, response.data]);
-      setNewStaff({ fullName: '', email: '', role: 'ROLE_TECHNICIAN', branchName: 'Main Branch' });
+      setNewStaff({
+        fullName: '',
+        email: '',
+        role: 'ROLE_TECHNICIAN',
+        branchName: branches.length > 0 ? branches[0].name : 'Main Branch'
+      });
       setShowAddModal(false);
     } catch (err: any) {
       setError('Failed to create staff account on database.');
@@ -69,7 +87,7 @@ export const Staff: React.FC = () => {
       name: staff.name || '',
       email: staff.email || '',
       role: staff.role || 'ROLE_TECHNICIAN',
-      branchName: staff.branchName || 'Main Branch',
+      branchName: staff.branchName || (branches.length > 0 ? branches[0].name : 'Main Branch'),
     });
   };
 
@@ -132,7 +150,7 @@ export const Staff: React.FC = () => {
           </div>
           <div className="flex items-center gap-3">
             <button
-              onClick={fetchStaffUsers}
+              onClick={fetchStaffAndBranches}
               className="p-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl transition-colors flex items-center gap-2 text-xs font-semibold"
             >
               <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
@@ -186,7 +204,12 @@ export const Staff: React.FC = () => {
                       {(staff.role || 'ROLE_OWNER').replace('ROLE_', '')}
                     </span>
                   </td>
-                  <td className="px-4 py-4 text-slate-300 text-xs font-medium">{staff.branchName || 'Main Branch'}</td>
+                  <td className="px-4 py-4 text-slate-300 text-xs font-medium">
+                    <span className="flex items-center gap-1.5 text-cyan-400 font-semibold">
+                      <Store className="w-3.5 h-3.5" />
+                      {staff.branchName || 'Main Branch'}
+                    </span>
+                  </td>
                   <td className="px-4 py-4">
                     <span className="text-emerald-400 text-xs font-medium flex items-center gap-1">
                       <CheckCircle className="w-3.5 h-3.5" /> Active
@@ -243,14 +266,22 @@ export const Staff: React.FC = () => {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 uppercase mb-1">Assigned Branch</label>
-                  <input
-                    type="text"
+                  <label className="block text-xs font-semibold text-slate-300 uppercase mb-1">Assigned Branch Location</label>
+                  <select
                     value={newStaff.branchName}
                     onChange={(e) => setNewStaff({ ...newStaff, branchName: e.target.value })}
                     className="w-full bg-slate-950 border border-slate-800 focus:border-cyan-500 rounded-2xl p-3 text-sm text-white outline-none"
-                    placeholder="Main Branch"
-                  />
+                  >
+                    {branches.length === 0 ? (
+                      <option value="Main Branch">Main Branch</option>
+                    ) : (
+                      branches.map((b) => (
+                        <option key={b.id} value={b.name}>
+                          {b.name} {b.isMainBranch ? '(HQ Main)' : ''}
+                        </option>
+                      ))
+                    )}
+                  </select>
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-slate-300 uppercase mb-1">Assign Security Role</label>
@@ -321,13 +352,22 @@ export const Staff: React.FC = () => {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 uppercase mb-1">Assigned Branch Name</label>
-                  <input
-                    type="text"
+                  <label className="block text-xs font-semibold text-slate-300 uppercase mb-1">Assigned Branch Location</label>
+                  <select
                     value={editFormData.branchName}
                     onChange={(e) => setEditFormData({ ...editFormData, branchName: e.target.value })}
-                    className="w-full bg-slate-950 border border-slate-800 focus:border-cyan-500 rounded-2xl p-3 text-sm text-white outline-none"
-                  />
+                    className="w-full bg-slate-950 border border-slate-800 focus:border-cyan-500 rounded-2xl p-3.5 text-sm text-white outline-none"
+                  >
+                    {branches.length === 0 ? (
+                      <option value="Main Branch">Main Branch</option>
+                    ) : (
+                      branches.map((b) => (
+                        <option key={b.id} value={b.name}>
+                          {b.name} {b.isMainBranch ? '(HQ Main)' : ''}
+                        </option>
+                      ))
+                    )}
+                  </select>
                 </div>
 
                 <div>
