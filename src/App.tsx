@@ -4,6 +4,7 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import { Sidebar } from './components/Sidebar';
 import { Login } from './pages/Login';
 import { Dashboard } from './pages/Dashboard';
+import { Reports } from './pages/Reports';
 import { Branches } from './pages/Branches';
 import { Staff } from './pages/Staff';
 import { Repairs } from './pages/Repairs';
@@ -23,6 +24,7 @@ const ProtectedLayout: React.FC = () => {
       <div className="flex-1 overflow-x-hidden">
         <Routes>
           <Route path="/" element={<Dashboard />} />
+          <Route path="/reports" element={<Reports />} />
           <Route path="/branches" element={<Branches />} />
           <Route path="/staff" element={<Staff />} />
           <Route path="/repairs" element={<Repairs />} />

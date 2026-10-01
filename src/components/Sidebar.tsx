@@ -2,6 +2,7 @@ import React from 'react';
 import { NavLink } from 'react-router-dom';
 import {
   LayoutDashboard,
+  BarChart3,
   Store,
   Users,
   Wrench,
@@ -17,6 +18,7 @@ export const Sidebar: React.FC = () => {
 
   const navItems = [
     { to: '/', label: 'Dashboard', icon: LayoutDashboard },
+    { to: '/reports', label: 'Reports & Analytics', icon: BarChart3 },
     { to: '/branches', label: 'Branch Setup', icon: Store },
     { to: '/staff', label: 'Staff & Roles', icon: Users },
     { to: '/repairs', label: 'Repair Jobs', icon: Wrench },
