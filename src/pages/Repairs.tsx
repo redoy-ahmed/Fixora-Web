@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Wrench, ShieldCheck, Plus, AlertCircle, RefreshCw, Smartphone, User, FileText, UserCheck } from 'lucide-react';
+import { Wrench, ShieldCheck, Plus, AlertCircle, RefreshCw, Smartphone, User, FileText, UserCheck, Calculator } from 'lucide-react';
 import { Header } from '../components/Header';
 import { apiClient } from '../api/client';
 
@@ -11,6 +11,7 @@ export const Repairs: React.FC = () => {
 
   const [showAddModal, setShowAddModal] = useState(false);
   const [assigningJob, setAssigningJob] = useState<any | null>(null);
+  const [estimatingJob, setEstimatingJob] = useState<any | null>(null);
   const [selectedTechId, setSelectedTechId] = useState<string>('');
 
   const [intakeForm, setIntakeForm] = useState({
@@ -25,6 +26,14 @@ export const Repairs: React.FC = () => {
     reportedProblem: 'Shattered OLED display and touch digitizer unresponsive',
     priority: 'NORMAL',
     estimatedCostDollars: '120.00',
+  });
+
+  const [estimateForm, setEstimateForm] = useState({
+    faultSummary: 'Display glass shattered, touch digitizer unresponsive. Needs OLED screen replacement.',
+    partsCostDollars: '60.00',
+    laborCostDollars: '40.00',
+    discountDollars: '0.00',
+    additionalChargesDollars: '0.00',
   });
 
   const fetchData = async () => {
@@ -111,6 +120,31 @@ export const Repairs: React.FC = () => {
     }
   };
 
+  const handleCreateDiagnosisEstimate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!estimatingJob) return;
+
+    try {
+      const partsCents = Math.round((parseFloat(estimateForm.partsCostDollars) || 0) * 100);
+      const laborCents = Math.round((parseFloat(estimateForm.laborCostDollars) || 0) * 100);
+      const discountCents = Math.round((parseFloat(estimateForm.discountDollars) || 0) * 100);
+      const addCents = Math.round((parseFloat(estimateForm.additionalChargesDollars) || 0) * 100);
+
+      await apiClient.post(`/api/v1/staff/repairs/${estimatingJob.id}/estimate`, {
+        faultSummary: estimateForm.faultSummary,
+        partsCostCents: partsCents,
+        laborCostCents: laborCents,
+        discountCents: discountCents,
+        additionalChargesCents: addCents,
+      });
+
+      setEstimatingJob(null);
+      fetchData();
+    } catch (err: any) {
+      setError('Failed to save diagnostic estimate on database.');
+    }
+  };
+
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'IN_REPAIR':
@@ -193,7 +227,7 @@ export const Repairs: React.FC = () => {
                     <th className="px-4 py-3.5">Status</th>
                     <th className="px-4 py-3.5">Assigned Technician</th>
                     <th className="px-4 py-3.5">Estimated Cost</th>
-                    <th className="px-4 py-3.5 rounded-r-xl">Cryptographic SHA-256 Hash</th>
+                    <th className="px-4 py-3.5 rounded-r-xl text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-800/60">
@@ -226,11 +260,13 @@ export const Repairs: React.FC = () => {
                       <td className="px-4 py-4 font-bold text-white">
                         ${((job.estimatedCostCents || 0) / 100).toFixed(2)}
                       </td>
-                      <td className="px-4 py-4 font-mono text-xs text-cyan-400 flex items-center gap-1.5">
-                        <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
-                        <span className="truncate max-w-[140px]">
-                          {job.recordHash || 'Generated on Delivery'}
-                        </span>
+                      <td className="px-4 py-4 text-right">
+                        <button
+                          onClick={() => setEstimatingJob(job)}
+                          className="text-xs font-semibold text-cyan-400 hover:underline flex items-center justify-end gap-1"
+                        >
+                          <Calculator className="w-3.5 h-3.5" /> Diagnosis Estimate
+                        </button>
                       </td>
                     </tr>
                   ))}
@@ -396,6 +432,77 @@ export const Repairs: React.FC = () => {
                     className="px-5 py-2.5 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 text-sm font-bold shadow-lg shadow-cyan-500/20"
                   >
                     Create Intake Ticket
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* Diagnostic Estimate Modal */}
+        {estimatingJob && (
+          <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+            <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 w-full max-w-lg shadow-2xl space-y-5">
+              <div>
+                <h3 className="text-xl font-bold text-white flex items-center gap-2">
+                  <Calculator className="w-5 h-5 text-cyan-400" />
+                  Issue Diagnostic Estimate
+                </h3>
+                <p className="text-xs text-slate-400 mt-1">
+                  Itemized fault diagnosis for repair job <span className="text-cyan-400 font-mono font-bold">{estimatingJob.jobNumber}</span>
+                </p>
+              </div>
+
+              <form onSubmit={handleCreateDiagnosisEstimate} className="space-y-4">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 uppercase mb-1">Fault Summary</label>
+                  <textarea
+                    rows={2}
+                    required
+                    value={estimateForm.faultSummary}
+                    onChange={(e) => setEstimateForm({ ...estimateForm, faultSummary: e.target.value })}
+                    className="w-full bg-slate-950 border border-slate-800 focus:border-cyan-500 rounded-2xl p-3 text-sm text-white outline-none"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-300 uppercase mb-1">Parts Cost ($)</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      required
+                      value={estimateForm.partsCostDollars}
+                      onChange={(e) => setEstimateForm({ ...estimateForm, partsCostDollars: e.target.value })}
+                      className="w-full bg-slate-950 border border-slate-800 focus:border-cyan-500 rounded-2xl p-3 text-sm text-white outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-300 uppercase mb-1">Labor Fee ($)</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      required
+                      value={estimateForm.laborCostDollars}
+                      onChange={(e) => setEstimateForm({ ...estimateForm, laborCostDollars: e.target.value })}
+                      className="w-full bg-slate-950 border border-slate-800 focus:border-cyan-500 rounded-2xl p-3 text-sm text-white outline-none"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-end gap-3 pt-4">
+                  <button
+                    type="button"
+                    onClick={() => setEstimatingJob(null)}
+                    className="px-5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-sm font-semibold"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-5 py-2.5 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 text-sm font-bold shadow-lg shadow-cyan-500/20"
+                  >
+                    Save Estimate
                   </button>
                 </div>
               </form>
