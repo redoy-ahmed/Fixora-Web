@@ -7,6 +7,7 @@ import { Dashboard } from './pages/Dashboard';
 import { Reports } from './pages/Reports';
 import { Invoices } from './pages/Invoices';
 import { Passport } from './pages/Passport';
+import { Notifications } from './pages/Notifications';
 import { Warranties } from './pages/Warranties';
 import { Customers } from './pages/Customers';
 import { Branches } from './pages/Branches';
@@ -31,6 +32,7 @@ const ProtectedLayout: React.FC = () => {
           <Route path="/reports" element={<Reports />} />
           <Route path="/invoices" element={<Invoices />} />
           <Route path="/passport" element={<Passport />} />
+          <Route path="/notifications" element={<Notifications />} />
           <Route path="/customers" element={<Customers />} />
           <Route path="/warranties" element={<Warranties />} />
           <Route path="/branches" element={<Branches />} />
