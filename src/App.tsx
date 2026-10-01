@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { Sidebar } from './components/Sidebar';
 import { Login } from './pages/Login';
+import { PublicTracker } from './pages/PublicTracker';
 import { Dashboard } from './pages/Dashboard';
 import { Reports } from './pages/Reports';
 import { Invoices } from './pages/Invoices';
@@ -24,7 +25,7 @@ const ProtectedLayout: React.FC = () => {
   }
 
   return (
-    <div className="flex min-h-screen bg-slate-950">
+    <div className="flex min-h-screen bg-slate-950 text-slate-100">
       <Sidebar />
       <div className="flex-1 overflow-x-hidden">
         <Routes>
@@ -53,6 +54,8 @@ export const App: React.FC = () => {
       <Router>
         <Routes>
           <Route path="/login" element={<Login />} />
+          <Route path="/track" element={<PublicTracker />} />
+          <Route path="/track/:jobNumber" element={<PublicTracker />} />
           <Route path="/*" element={<ProtectedLayout />} />
         </Routes>
       </Router>

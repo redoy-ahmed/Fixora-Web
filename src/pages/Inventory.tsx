@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { Package, Plus, AlertCircle, RefreshCw, Edit3, Trash2, ArrowRightLeft } from 'lucide-react';
+import { Package, Plus, AlertCircle, RefreshCw, Edit3, Trash2, ArrowRightLeft, Download } from 'lucide-react';
 import { Header } from '../components/Header';
 import { apiClient } from '../api/client';
+import { exportToCsv } from '../utils/exportCsv';
 
 export const Inventory: React.FC = () => {
   const [items, setItems] = useState<any[]>([]);
@@ -72,6 +73,20 @@ export const Inventory: React.FC = () => {
   useEffect(() => {
     fetchInventoryAndBranches();
   }, []);
+
+  const handleExportCsv = () => {
+    const headers = ['Part Name', 'SKU', 'Brand', 'Category', 'Stock Quantity', 'Cost Price ($)', 'Selling Price ($)'];
+    const rows = items.map((i) => [
+      i.name,
+      i.sku,
+      i.brand,
+      i.category,
+      i.stockQuantity,
+      ((i.costPriceCents || 0) / 100).toFixed(2),
+      ((i.sellingPriceCents || 0) / 100).toFixed(2),
+    ]);
+    exportToCsv('fixora-inventory-stock', headers, rows);
+  };
 
   const handleAddStockItem = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -188,6 +203,15 @@ export const Inventory: React.FC = () => {
             <p className="text-xs text-slate-400">Fetched directly from PostgreSQL database (`inventory_parts` table)</p>
           </div>
           <div className="flex items-center gap-3">
+            <button
+              onClick={handleExportCsv}
+              className="p-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl transition-colors flex items-center gap-2 text-xs font-semibold"
+              title="Export CSV Spreadsheet"
+            >
+              <Download className="w-4 h-4 text-cyan-400" />
+              <span>Export CSV</span>
+            </button>
+
             <button
               onClick={fetchInventoryAndBranches}
               className="p-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl transition-colors flex items-center gap-2 text-xs font-semibold"

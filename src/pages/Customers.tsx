@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { Users, UserPlus, Phone, Mail, MapPin, RefreshCw, AlertCircle, Trash2, Edit3, CheckCircle2 } from 'lucide-react';
+import { Users, UserPlus, Phone, Mail, MapPin, RefreshCw, AlertCircle, Trash2, Edit3, CheckCircle2, Download } from 'lucide-react';
 import { Header } from '../components/Header';
 import { apiClient } from '../api/client';
+import { exportToCsv } from '../utils/exportCsv';
 
 export const Customers: React.FC = () => {
   const [customers, setCustomers] = useState<any[]>([]);
@@ -43,6 +44,12 @@ export const Customers: React.FC = () => {
   useEffect(() => {
     fetchCustomers();
   }, []);
+
+  const handleExportCsv = () => {
+    const headers = ['Customer Name', 'Phone Number', 'Email Address', 'Address'];
+    const rows = customers.map((c) => [c.name, c.phone, c.email, c.address]);
+    exportToCsv('fixora-customers-directory', headers, rows);
+  };
 
   const handleAddCustomer = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -104,6 +111,14 @@ export const Customers: React.FC = () => {
             <p className="text-xs text-slate-400">Fetched directly from PostgreSQL database (`customers` table)</p>
           </div>
           <div className="flex items-center gap-3">
+            <button
+              onClick={handleExportCsv}
+              className="p-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl transition-colors flex items-center gap-2 text-xs font-semibold"
+              title="Export CSV Directory"
+            >
+              <Download className="w-4 h-4 text-cyan-400" />
+              <span>Export CSV</span>
+            </button>
             <button
               onClick={fetchCustomers}
               className="p-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl transition-colors flex items-center gap-2 text-xs font-semibold"
