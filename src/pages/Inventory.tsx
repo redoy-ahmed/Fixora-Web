@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Package, Plus, AlertCircle, RefreshCw } from 'lucide-react';
+import { Package, Plus, AlertCircle, RefreshCw, Edit3, Trash2 } from 'lucide-react';
 import { Header } from '../components/Header';
 import { apiClient } from '../api/client';
 
@@ -9,6 +9,8 @@ export const Inventory: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
 
   const [showAddModal, setShowAddModal] = useState(false);
+  const [editingItem, setEditingItem] = useState<any | null>(null);
+
   const [newItem, setNewItem] = useState({
     name: '',
     sku: '',
@@ -17,6 +19,18 @@ export const Inventory: React.FC = () => {
     costPrice: '45.00',
     sellingPrice: '90.00',
     stockQuantity: 10,
+    minimumStock: 2,
+    supplierName: '',
+  });
+
+  const [editFormData, setEditFormData] = useState({
+    name: '',
+    sku: '',
+    brand: '',
+    category: '',
+    costPrice: '',
+    sellingPrice: '',
+    stockQuantity: 0,
     minimumStock: 2,
     supplierName: '',
   });
@@ -73,6 +87,59 @@ export const Inventory: React.FC = () => {
       setShowAddModal(false);
     } catch (err: any) {
       setError('Failed to save stock item to PostgreSQL database.');
+    }
+  };
+
+  const handleOpenEditModal = (item: any) => {
+    setEditingItem(item);
+    setEditFormData({
+      name: item.name || '',
+      sku: item.sku || '',
+      brand: item.brand || '',
+      category: item.category || '',
+      costPrice: ((item.costPriceCents || 0) / 100).toFixed(2),
+      sellingPrice: ((item.sellingPriceCents || 0) / 100).toFixed(2),
+      stockQuantity: item.stockQuantity || 0,
+      minimumStock: item.minimumStock || 2,
+      supplierName: item.supplierName || '',
+    });
+  };
+
+  const handleUpdateStockItem = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingItem) return;
+
+    try {
+      const costCents = Math.round((parseFloat(editFormData.costPrice) || 0) * 100);
+      const sellingCents = Math.round((parseFloat(editFormData.sellingPrice) || 0) * 100);
+
+      const response = await apiClient.put(`/api/v1/staff/inventory/${editingItem.id}`, {
+        sku: editFormData.sku,
+        name: editFormData.name,
+        brand: editFormData.brand,
+        category: editFormData.category,
+        costPriceCents: costCents,
+        sellingPriceCents: sellingCents,
+        stockQuantity: Number(editFormData.stockQuantity),
+        minimumStock: Number(editFormData.minimumStock),
+        supplierName: editFormData.supplierName,
+      });
+
+      setItems(items.map((i) => (i.id === editingItem.id ? response.data : i)));
+      setEditingItem(null);
+    } catch (err: any) {
+      setError('Failed to update inventory item in PostgreSQL database.');
+    }
+  };
+
+  const handleDeleteItem = async (id: string, name: string) => {
+    if (!window.confirm(`Are you sure you want to delete ${name} from inventory?`)) return;
+
+    try {
+      await apiClient.delete(`/api/v1/staff/inventory/${id}`);
+      setItems(items.filter((i) => i.id !== id));
+    } catch (err: any) {
+      setError('Failed to delete inventory item.');
     }
   };
 
@@ -139,7 +206,8 @@ export const Inventory: React.FC = () => {
                   <th className="px-4 py-3.5">Stock Quantity</th>
                   <th className="px-4 py-3.5">Cost Price</th>
                   <th className="px-4 py-3.5">Selling Price</th>
-                  <th className="px-4 py-3.5 rounded-r-xl">Brand / Category</th>
+                  <th className="px-4 py-3.5">Brand / Category</th>
+                  <th className="px-4 py-3.5 rounded-r-xl text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-800/60">
@@ -163,6 +231,21 @@ export const Inventory: React.FC = () => {
                     </td>
                     <td className="px-4 py-4 text-xs text-slate-400">
                       {item.brand} — {item.category}
+                    </td>
+                    <td className="px-4 py-4 text-right flex items-center justify-end gap-3">
+                      <button
+                        onClick={() => handleOpenEditModal(item)}
+                        className="text-xs font-semibold text-cyan-400 hover:underline flex items-center gap-1"
+                      >
+                        <Edit3 className="w-3.5 h-3.5" /> Edit
+                      </button>
+                      <button
+                        onClick={() => handleDeleteItem(item.id, item.name)}
+                        className="p-1.5 text-slate-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
+                        title="Delete Item"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
                     </td>
                   </tr>
                 ))}
@@ -286,6 +369,130 @@ export const Inventory: React.FC = () => {
                     className="px-5 py-2.5 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 text-sm font-bold shadow-lg shadow-cyan-500/20"
                   >
                     Save Stock Item
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* Edit Stock Item Modal */}
+        {editingItem && (
+          <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+            <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 w-full max-w-lg shadow-2xl space-y-5">
+              <div>
+                <h3 className="text-xl font-bold text-white">Edit Inventory Spare Part</h3>
+                <p className="text-xs text-slate-400 mt-1">
+                  Updating stock item <span className="text-cyan-400 font-semibold">{editingItem.name}</span>
+                </p>
+              </div>
+
+              <form onSubmit={handleUpdateStockItem} className="space-y-4">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 uppercase mb-1">Part Name</label>
+                  <input
+                    type="text"
+                    required
+                    value={editFormData.name}
+                    onChange={(e) => setEditFormData({ ...editFormData, name: e.target.value })}
+                    className="w-full bg-slate-950 border border-slate-800 focus:border-cyan-500 rounded-2xl p-3 text-sm text-white outline-none"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-300 uppercase mb-1">SKU Code</label>
+                    <input
+                      type="text"
+                      required
+                      value={editFormData.sku}
+                      onChange={(e) => setEditFormData({ ...editFormData, sku: e.target.value })}
+                      className="w-full bg-slate-950 border border-slate-800 focus:border-cyan-500 rounded-2xl p-3 text-sm text-white outline-none font-mono"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-300 uppercase mb-1">Brand</label>
+                    <input
+                      type="text"
+                      required
+                      value={editFormData.brand}
+                      onChange={(e) => setEditFormData({ ...editFormData, brand: e.target.value })}
+                      className="w-full bg-slate-950 border border-slate-800 focus:border-cyan-500 rounded-2xl p-3 text-sm text-white outline-none"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-300 uppercase mb-1">Category</label>
+                    <input
+                      type="text"
+                      required
+                      value={editFormData.category}
+                      onChange={(e) => setEditFormData({ ...editFormData, category: e.target.value })}
+                      className="w-full bg-slate-950 border border-slate-800 focus:border-cyan-500 rounded-2xl p-3 text-sm text-white outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-300 uppercase mb-1">Cost Price ($)</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      required
+                      value={editFormData.costPrice}
+                      onChange={(e) => setEditFormData({ ...editFormData, costPrice: e.target.value })}
+                      className="w-full bg-slate-950 border border-slate-800 focus:border-cyan-500 rounded-2xl p-3 text-sm text-white outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-300 uppercase mb-1">Selling Price ($)</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      required
+                      value={editFormData.sellingPrice}
+                      onChange={(e) => setEditFormData({ ...editFormData, sellingPrice: e.target.value })}
+                      className="w-full bg-slate-950 border border-slate-800 focus:border-cyan-500 rounded-2xl p-3 text-sm text-white outline-none font-bold text-emerald-400"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-300 uppercase mb-1">Stock Quantity</label>
+                    <input
+                      type="number"
+                      required
+                      value={editFormData.stockQuantity}
+                      onChange={(e) => setEditFormData({ ...editFormData, stockQuantity: parseInt(e.target.value) || 0 })}
+                      className="w-full bg-slate-950 border border-slate-800 focus:border-cyan-500 rounded-2xl p-3 text-sm text-white outline-none font-bold text-cyan-400"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-300 uppercase mb-1">Reorder Alert Stock</label>
+                    <input
+                      type="number"
+                      required
+                      value={editFormData.minimumStock}
+                      onChange={(e) => setEditFormData({ ...editFormData, minimumStock: parseInt(e.target.value) || 2 })}
+                      className="w-full bg-slate-950 border border-slate-800 focus:border-cyan-500 rounded-2xl p-3 text-sm text-white outline-none"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-end gap-3 pt-4">
+                  <button
+                    type="button"
+                    onClick={() => setEditingItem(null)}
+                    className="px-5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-sm font-semibold"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-5 py-2.5 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 text-sm font-bold shadow-lg shadow-cyan-500/20"
+                  >
+                    Save Changes
                   </button>
                 </div>
               </form>
