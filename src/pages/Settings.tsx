@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
-import { Settings as SettingsIcon, Save, Store, Shield, Receipt } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { Save, Store, Receipt, RefreshCw, AlertCircle } from 'lucide-react';
 import { Header } from '../components/Header';
+import { apiClient } from '../api/client';
 import { ShopConfig } from '../types';
 
 export const Settings: React.FC = () => {
@@ -15,12 +16,40 @@ export const Settings: React.FC = () => {
     receiptFooterText: 'Thank you for choosing TechCare Fixora. Track repair record via QR code.',
   });
 
+  const [isLoading, setIsLoading] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleSave = (e: React.FormEvent) => {
+  const fetchSettings = async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const response = await apiClient.get('/api/v1/staff/settings');
+      if (response.data) {
+        setConfig(response.data);
+      }
+    } catch (err: any) {
+      console.warn('Failed to fetch shop settings from database');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchSettings();
+  }, []);
+
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsSaved(true);
-    setTimeout(() => setIsSaved(false), 3000);
+    setError(null);
+    try {
+      const response = await apiClient.post('/api/v1/staff/settings', config);
+      setConfig(response.data);
+      setIsSaved(true);
+      setTimeout(() => setIsSaved(false), 3000);
+    } catch (err: any) {
+      setError('Failed to save shop settings to database.');
+    }
   };
 
   return (
@@ -28,9 +57,30 @@ export const Settings: React.FC = () => {
       <Header title="Global Shop Settings" subtitle="Configure shop identity, currency, warranty defaults, and receipts" />
 
       <main className="p-8 max-w-4xl mx-auto space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-lg font-bold text-white">System Settings Config</h2>
+            <p className="text-xs text-slate-400">Persisted in PostgreSQL database (`shop_config` table)</p>
+          </div>
+          <button
+            onClick={fetchSettings}
+            className="p-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl transition-colors flex items-center gap-2 text-xs font-semibold"
+          >
+            <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
+            <span>Reload Settings</span>
+          </button>
+        </div>
+
         {isSaved && (
           <div className="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-sm font-semibold flex items-center justify-between shadow-lg">
-            <span>Shop configuration updated successfully!</span>
+            <span>Shop configuration saved to PostgreSQL database successfully!</span>
+          </div>
+        )}
+
+        {error && (
+          <div className="p-4 rounded-2xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm flex items-center gap-2">
+            <AlertCircle className="w-5 h-5 shrink-0" />
+            <span>{error}</span>
           </div>
         )}
 
