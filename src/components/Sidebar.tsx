@@ -5,12 +5,12 @@ import {
   BarChart3,
   Receipt,
   QrCode,
+  ShieldCheck,
   Store,
   Users,
   Wrench,
   Package,
   Settings,
-  ShieldCheck,
   LogOut
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
@@ -23,6 +23,7 @@ export const Sidebar: React.FC = () => {
     { to: '/reports', label: 'Reports & Analytics', icon: BarChart3 },
     { to: '/invoices', label: 'Invoices & POS', icon: Receipt },
     { to: '/passport', label: 'Device Passport', icon: QrCode },
+    { to: '/warranties', label: 'Warranties & Claims', icon: ShieldCheck },
     { to: '/branches', label: 'Branch Setup', icon: Store },
     { to: '/staff', label: 'Staff & Roles', icon: Users },
     { to: '/repairs', label: 'Repair Jobs', icon: Wrench },
