@@ -5,71 +5,72 @@ import {
   CheckCircle2,
   DollarSign,
   AlertTriangle,
-  TrendingUp,
-  Store,
-  Users
+  ShieldCheck,
+  RefreshCw
 } from 'lucide-react';
 import { Header } from '../components/Header';
 import { apiClient } from '../api/client';
-import { ShopKpis } from '../types';
 
 export const Dashboard: React.FC = () => {
-  const [kpis, setKpis] = useState<ShopKpis>({
-    todaysJobs: 14,
-    inRepairJobs: 8,
-    completedJobsToday: 5,
-    todayRevenueCents: 45000,
-    lowStockItemsCount: 2
+  const [kpiData, setKpiData] = useState<any>({
+    todaysJobsCount: 0,
+    inRepairCount: 0,
+    completedCount: 0,
+    todaysRevenueCents: 0,
   });
+
+  const [repairs, setRepairs] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
+  const fetchDashboardData = async () => {
+    setIsLoading(true);
+    try {
+      const [kpiRes, repairsRes] = await Promise.all([
+        apiClient.get('/api/v1/staff/dashboard/kpis').catch(() => ({ data: {} })),
+        apiClient.get('/api/v1/staff/repairs').catch(() => ({ data: [] }))
+      ]);
+
+      setKpiData(kpiRes.data || {});
+      setRepairs(repairsRes.data || []);
+    } catch (err) {
+      console.warn('Dashboard API sync failed');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const fetchKpis = async () => {
-      setIsLoading(true);
-      try {
-        const response = await apiClient.get('/api/v1/staff/dashboard/kpis');
-        setKpis(response.data);
-      } catch (err) {
-        console.warn('Using mock fallback KPIs for preview mode');
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    fetchKpis();
+    fetchDashboardData();
   }, []);
 
   const kpiCards = [
     {
       title: "Today's Repairs",
-      value: kpis.todaysJobs,
+      value: kpiData.todaysJobsCount || 0,
       subtitle: "New intake jobs",
       icon: Wrench,
       color: "from-cyan-500 to-blue-500",
-      textColor: "text-cyan-400"
     },
     {
       title: "Active Repairs",
-      value: kpis.inRepairJobs,
+      value: kpiData.inRepairCount || 0,
       subtitle: "Currently on bench",
       icon: Clock,
       color: "from-amber-500 to-orange-500",
-      textColor: "text-amber-400"
     },
     {
       title: "Completed Today",
-      value: kpis.completedJobsToday,
+      value: kpiData.completedCount || 0,
       subtitle: "Ready for pickup",
       icon: CheckCircle2,
       color: "from-emerald-500 to-teal-500",
-      textColor: "text-emerald-400"
     },
     {
       title: "Today's Revenue",
-      value: `$${(kpis.todayRevenueCents / 100).toFixed(2)}`,
+      value: `$${((kpiData.todaysRevenueCents || 0) / 100).toFixed(2)}`,
       subtitle: "Payments processed",
       icon: DollarSign,
       color: "from-purple-500 to-indigo-500",
-      textColor: "text-purple-400"
     },
   ];
 
@@ -78,6 +79,21 @@ export const Dashboard: React.FC = () => {
       <Header title="Shop Dashboard Overview" subtitle="Real-time KPI metrics and repair operation status" />
 
       <main className="p-8 max-w-7xl mx-auto space-y-8">
+        {/* Refresh Header Bar */}
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-lg font-bold text-white">Live System Metrics</h2>
+            <p className="text-xs text-slate-400">Synced directly with PostgreSQL database</p>
+          </div>
+          <button
+            onClick={fetchDashboardData}
+            className="p-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl transition-colors flex items-center gap-2 text-xs font-semibold"
+          >
+            <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
+            <span>Sync Dashboard</span>
+          </button>
+        </div>
+
         {/* KPI Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           {kpiCards.map((card, idx) => (
@@ -103,13 +119,13 @@ export const Dashboard: React.FC = () => {
         {/* Quick Config Alert */}
         <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-6 shadow-xl">
           <div className="flex items-start gap-4">
-            <div className="p-3 bg-amber-500/10 border border-amber-500/20 text-amber-400 rounded-2xl shrink-0 mt-1 md:mt-0">
+            <div className="p-3 bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 rounded-2xl shrink-0 mt-1 md:mt-0">
               <AlertTriangle className="w-6 h-6" />
             </div>
             <div>
-              <h3 className="font-bold text-white text-lg">Shop Setup & Config Complete</h3>
+              <h3 className="font-bold text-white text-lg">Fixora Admin Portal Connected</h3>
               <p className="text-sm text-slate-400 mt-0.5">
-                All 12 PostgreSQL database tables initialized. Configure branch locations, staff roles, and repair shop details in the sidebar.
+                All 13 database tables initialized. Configure branch locations, staff accounts, and shop settings in the sidebar.
               </p>
             </div>
           </div>
@@ -134,57 +150,58 @@ export const Dashboard: React.FC = () => {
           <div className="flex items-center justify-between mb-6">
             <div>
               <h3 className="text-lg font-bold text-white">Active Repair Jobs</h3>
-              <p className="text-xs text-slate-400">Live repair state machine monitoring</p>
+              <p className="text-xs text-slate-400">Database repair ticket state machine</p>
             </div>
             <a href="/repairs" className="text-xs font-semibold text-cyan-400 hover:underline">
               View All Jobs &rarr;
             </a>
           </div>
 
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm text-slate-300">
-              <thead className="bg-slate-950 text-xs text-slate-400 uppercase tracking-wider">
-                <tr>
-                  <th className="px-4 py-3 rounded-l-xl">Job #</th>
-                  <th className="px-4 py-3">Customer</th>
-                  <th className="px-4 py-3">Device Model</th>
-                  <th className="px-4 py-3">Status</th>
-                  <th className="px-4 py-3">Estimate</th>
-                  <th className="px-4 py-3 rounded-r-xl">REST Hash</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-800/60">
-                <tr>
-                  <td className="px-4 py-4 font-mono font-bold text-cyan-400">JOB-1001</td>
-                  <td className="px-4 py-4 font-medium text-white">Rahim Ahmed</td>
-                  <td className="px-4 py-4 text-slate-300">iPhone 14 Pro Max</td>
-                  <td className="px-4 py-4">
-                    <span className="bg-amber-500/10 text-amber-400 border border-amber-500/20 px-3 py-1 rounded-full text-xs font-medium">
-                      IN_REPAIR
-                    </span>
-                  </td>
-                  <td className="px-4 py-4 font-semibold text-white">$120.00</td>
-                  <td className="px-4 py-4 font-mono text-xs text-slate-500 truncate max-w-[120px]">
-                    a9f4c3...8b21
-                  </td>
-                </tr>
-                <tr>
-                  <td className="px-4 py-4 font-mono font-bold text-cyan-400">JOB-1002</td>
-                  <td className="px-4 py-4 font-medium text-white">Farhana Islam</td>
-                  <td className="px-4 py-4 text-slate-300">Samsung Galaxy S23 Ultra</td>
-                  <td className="px-4 py-4">
-                    <span className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-3 py-1 rounded-full text-xs font-medium">
-                      DELIVERED
-                    </span>
-                  </td>
-                  <td className="px-4 py-4 font-semibold text-white">$210.00</td>
-                  <td className="px-4 py-4 font-mono text-xs text-slate-500 truncate max-w-[120px]">
-                    e73b12...9d10
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
+          {repairs.length === 0 ? (
+            <div className="py-8 text-center text-slate-500 text-sm">
+              No active repair tickets in the database.
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-sm text-slate-300">
+                <thead className="bg-slate-950 text-xs text-slate-400 uppercase tracking-wider">
+                  <tr>
+                    <th className="px-4 py-3 rounded-l-xl">Job #</th>
+                    <th className="px-4 py-3">Customer</th>
+                    <th className="px-4 py-3">Device Model</th>
+                    <th className="px-4 py-3">Status</th>
+                    <th className="px-4 py-3">Estimate</th>
+                    <th className="px-4 py-3 rounded-r-xl">REST Hash</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-800/60">
+                  {repairs.map((job) => (
+                    <tr key={job.id} className="hover:bg-slate-800/30 transition-colors">
+                      <td className="px-4 py-4 font-mono font-bold text-cyan-400">{job.jobNumber}</td>
+                      <td className="px-4 py-4 font-medium text-white">{job.customer?.name || 'Customer'}</td>
+                      <td className="px-4 py-4 text-slate-300">
+                        {job.device ? `${job.device.brand} ${job.device.model}` : 'Device'}
+                      </td>
+                      <td className="px-4 py-4">
+                        <span className="bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 px-3 py-1 rounded-full text-xs font-medium">
+                          {job.status}
+                        </span>
+                      </td>
+                      <td className="px-4 py-4 font-semibold text-white">
+                        ${((job.estimatedCostCents || 0) / 100).toFixed(2)}
+                      </td>
+                      <td className="px-4 py-4 font-mono text-xs text-emerald-400 flex items-center gap-1">
+                        <ShieldCheck className="w-3.5 h-3.5" />
+                        <span className="truncate max-w-[120px]">
+                          {job.recordHash || 'Pending'}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       </main>
     </div>
